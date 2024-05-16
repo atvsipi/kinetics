@@ -1,0 +1,1 @@
+{"version":3,"file":"Polygon.d.ts","sourceRoot":"","sources":["../../../src/shapes/Polygon.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,MAAM,SAAS,CAAC;AAC5B,OAAO,EAAC,SAAS,EAAC,MAAM,kBAAkB,CAAC;AAE3C,MAAM,CAAC,OAAO,OAAO,OAAQ,SAAQ,KAAK;IAC/B,IAAI,EAAE,SAAS,CAAqB;CAC9C"}
