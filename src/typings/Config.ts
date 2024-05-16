@@ -1,7 +1,54 @@
-import { Colors } from "./Enums";
+import type {Colors} from './Enums';
+import type {ShapeForm} from './Interfaces';
 
-import Entity from "../entities/Entity";
-import Vector, { VectorLike } from "../utils/Vector";
+import type {Shape} from '../shapes/Shape';
+import type {Plugin} from '../plugin/Plugin';
+import type {VectorLike} from '../utils/Vector';
+
+/** Represents the information for a generic Shape. */
+export interface ShapeConfig {
+    /** The form of the shape. */
+    form: ShapeForm;
+
+    /** The speed of the Shape. */
+    speed: number;
+    /** The mass of the Shape. */
+    mass: number;
+    /** The elasticity of the Shape. */
+    elasticity: number;
+    /** Whether or not the shape is static. Defaults to `false`. */
+    static?: boolean;
+    /** The angular speed of the shape. Defaults to `0`. */
+    angularSpeed?: number;
+    /** Whether or not the shape should be able to rotate. Defaults to `true`. */
+    rotate?: boolean;
+    /** The threshold for the linear and angular velocities to put the shape to sleep. */
+    sleepThreshold?: number;
+
+    /** Rendering options for the shape. */
+    render?: ShapeRenderingConfig;
+    /** The hooks into collision resolution. */
+    hooks?: {
+        /** The hooks to run before resolving collisions. */
+        preResolve?: (shape: Shape) => void;
+        /** The hooks to run after resolving collisions. */
+        postResolve?: (shape: Shape) => void;
+    };
+}
+
+/** Represents the information for a circle. */
+export interface CircleConfig extends ShapeConfig {
+    /** The radius of the circle. */
+    radius: number;
+}
+
+/** Represents the information for a Line. */
+export interface LineConfig extends ShapeConfig {
+    /** The x-component of the end of the line. */
+    endX: number;
+    /** The y-component of the end of the line. */
+    endY: number;
+}
 
 /** The configuration for the camera. */
 export interface CameraConfig {
@@ -9,7 +56,7 @@ export interface CameraConfig {
     position?: VectorLike;
     /** The measure of how zoomed in the camera is. Defaults to `1`. */
     zoom?: number;
-};
+}
 
 /** The configuration for rendering. */
 export interface SystemRenderingConfig {
@@ -30,31 +77,31 @@ export interface SystemRenderingConfig {
         /** The hooks to run after rendering. */
         postRender?: (context: CanvasRenderingContext2D) => void;
     };
-};
+}
 
-/** The interface for rendering an entity. */
-export interface EntityRenderingConfig {
-    /** The stroke color of the entity. If not specified, the entity will not be stroked. If neither fillColor nor strokeColor is specified, the entity will be stroked by `Colors.Black` */
+/** The interface for rendering an shape. */
+export interface ShapeRenderingConfig {
+    /** The stroke color of the shape. If not specified, the shape will not be stroked. If neither fillColor nor strokeColor is specified, the shape will be stroked by `Colors.Black` */
     strokeColor?: Colors | string;
-    /** The fill color of the entity. If not specified, the entity will not be filled. If neither fillColor nor strokeColor is specified, the entity will be stroked by `Colors.Black`. */
+    /** The fill color of the shape. If not specified, the shape will not be filled. If neither fillColor nor strokeColor is specified, the shape will be stroked by `Colors.Black`. */
     fillColor?: Colors | string;
     /** The width of the stroke. Defaults to `1`. */
     strokeWidth?: number;
-    /** The glow intensity of the entity. If not specified, the entity will not have a glow. */
+    /** The glow intensity of the shape. If not specified, the shape will not have a glow. */
     glowIntensity?: number;
-    /** The glow color of the entity. If not specified, the entity will have the same glow as its stroke. */
+    /** The glow color of the shape. If not specified, the shape will have the same glow as its stroke. */
     glowColor?: Colors | string;
     /** The hooks into the renderer. */
     hooks?: {
-        /** The hooks to run before rendering the entity. */
-        preRender?: (entity: Entity, context: CanvasRenderingContext2D) => void;
-        /** The hooks to run after rendering the entity. */
-        postRender?: (entity: Entity, context: CanvasRenderingContext2D) => void;
+        /** The hooks to run before rendering the shape. */
+        preRender?: (shape: Shape, context: CanvasRenderingContext2D) => void;
+        /** The hooks to run after rendering the shape. */
+        postRender?: (shape: Shape, context: CanvasRenderingContext2D) => void;
     };
-};
+}
 
 /** The valid properties of the configuration of the system. */
-export interface SystemConfig {    
+export interface SystemConfig {
     collisionInfo: {
         /** The cell size of the collision engine (only applicable to hashgrids), which represents `2 ** x` game units. Default is `12`. */
         cellSize?: number;
@@ -67,17 +114,18 @@ export interface SystemConfig {
     tickRate?: number;
     /** Whether or not verbose logs (such as warnings) should be logged. Default is `false`. */
     verbose?: boolean;
-    /** Whether or not the system should use `requestAnimationFrame` over `setInterval`. Defaults to `true`. */
-    useRAF?: boolean;
-    
+
     /** The friction of the system when moving. Default is `0.1`. */
     friction?: number;
-    /** The gravity of the system when moving. Default is `0`. */
-    gravity?: number;
+    /** The gravity of the system when moving. Default is `{x: 0, y: 0}`. */
+    gravity?: VectorLike;
+
+    /** The plugins of the system. */
+    plugins?: Plugin[];
 
     /** The configuration of the camera. */
     camera?: CameraConfig;
 
     /** Rendering options for the system. */
     render?: SystemRenderingConfig;
-};
+}

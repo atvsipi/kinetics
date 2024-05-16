@@ -4,7 +4,7 @@ export interface VectorLike {
 }
 
 /** A vector in 2D space, represents a direction and magnitude simultaneously. */
-export default class Vector implements VectorLike {
+export class Vector implements VectorLike {
     /** The coordinates of the vector. */
     public x = 0;
     public y = 0;
@@ -23,7 +23,7 @@ export default class Vector implements VectorLike {
     public add(vector: VectorLike): Vector {
         this.x += vector.x;
         this.y += vector.y;
-    
+
         return this;
     }
 
@@ -39,6 +39,14 @@ export default class Vector implements VectorLike {
     public scale(scalar: number): Vector {
         this.x *= scalar;
         this.y *= scalar;
+
+        return this;
+    }
+
+    /** Divide from a vector. */
+    public divide(divider: number) {
+        this.x /= divider;
+        this.y /= divider;
 
         return this;
     }
@@ -75,7 +83,7 @@ export default class Vector implements VectorLike {
     public project(vector: Vector): Vector {
         if (vector.x === 0 && vector.y === 0) return new Vector(0, 0);
         return vector.clone.scale(this.dot(vector) / vector.magnitudeSq);
-    };
+    }
 
     /** Creates a vector directionally orthogonal to the current vector. */
     public get orthogonal(): Vector {
@@ -83,7 +91,7 @@ export default class Vector implements VectorLike {
     }
 
     /** Gets the angle of the vector from a reference point. */
-    public angle(reference = { x: 0, y: 0 }): number {
+    public angle(reference = {x: 0, y: 0}): number {
         return Math.atan2(this.y - reference.y, this.x - reference.x);
     }
 
@@ -96,11 +104,11 @@ export default class Vector implements VectorLike {
 
         return this;
     }
-    
+
     /** Gets the magnitude (length) of the vector. */
     public get magnitude(): number {
         return Math.sqrt(this.magnitudeSq);
-    };
+    }
 
     /** Sets the magnitude (length) of the vector. */
     public set magnitude(magnitude: number) {
@@ -108,15 +116,40 @@ export default class Vector implements VectorLike {
 
         this.x = magnitude * Math.cos(angle);
         this.y = magnitude * Math.sin(angle);
-    };
+    }
 
     /** Gets the squared magnitude of the vector. */
     public get magnitudeSq(): number {
         return this.x * this.x + this.y * this.y;
-    };
+    }
 
     /** Clones the vector. */
     public get clone(): Vector {
         return new Vector(this.x, this.y);
     }
-};
+
+    /** Get the distance from two vectors. */
+    static distance(a: VectorLike, b: VectorLike): number {
+        return Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+    }
+
+    /** Adds to a vector. */
+    static add(a: VectorLike, b: VectorLike): Vector {
+        return new Vector(a.x + b.x, a.y + b.y);
+    }
+
+    /** Subtract from the two vectors. */
+    static subtract(a: VectorLike, b: VectorLike): Vector {
+        return new Vector(a.x - b.x, a.y - b.y);
+    }
+
+    /** Scales from a vector. */
+    static scale(v: VectorLike, scalar: number) {
+        return new Vector(v.x * scalar, v.y * scalar);
+    }
+
+    /** Divide from a vector. */
+    static divide(v: VectorLike, divider: number) {
+        return new Vector(v.x / divider, v.y / divider);
+    }
+}

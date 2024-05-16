@@ -1,48 +1,60 @@
-import Entity from "../entities/Entity";
-import Circle from "../entities/shapes/Circle";
+import {Shape} from '../shapes/Shape';
+import {Circle} from '../shapes/Circle';
+import {Line} from '../shapes/Line';
 
-import { EntityType } from "../typings/Enums";
-import Vector from "../utils/Vector";
+import {ShapeType} from '../typings/Enums';
+import {Vector} from '../utils/Vector';
 
-/** A class which performs narrowphase collision detection on entities. */
-export default class CollisionResolver {
-    /** Detects collisions between two entities. */
-    public detect(entity1: Entity, entity2: Entity) {
-        if (entity1.components.length && entity2.components.length) {
-            for (const component1 of entity1.components) {
-                for (const component2 of entity2.components) {
+/** A class which performs narrowphase collision detection on shapes. */
+export class CollisionResolver {
+    /** Detects collisions between two shapes. */
+    public detect(shape1: Shape, shape2: Shape) {
+        if (shape1.components.length && shape2.components.length) {
+            for (const component1 of shape1.components) {
+                for (const component2 of shape2.components) {
                     const detected = this.detectSimple(component1, component2);
                     if (detected) break;
                 }
             }
 
             return;
-        } else if (entity1.components.length || entity2.components.length) {
-            const component = entity1.components.length ? entity1 : entity2;
-            const notComponent = entity1.components.length ? entity2 : entity1;
-            
+        } else if (shape1.components.length || shape2.components.length) {
+            const component = shape1.components.length ? shape1 : shape2;
+            const notComponent = shape1.components.length ? shape2 : shape1;
+
             for (const subComponent of component.components) {
                 const detected = this.detectSimple(subComponent, notComponent);
                 if (detected) break;
             }
-        } else this.detectSimple(entity1, entity2);
+        } else this.detectSimple(shape1, shape2);
     }
 
-    /** Detects collisions between two simple entities. */
-    public detectSimple(entity1: Entity, entity2: Entity): boolean {
-        if (entity1.type === EntityType.Circle && entity2.type === EntityType.Circle) return this.detectCircleCircle(entity1 as Circle, entity2 as Circle);
-        if (entity1.type === EntityType.Circle || entity2.type === EntityType.Circle) {
-            const circle = entity1.type === EntityType.Circle ? entity1 : entity2;
-            const notCircle = entity1.type === EntityType.Circle ? entity2 : entity1;
+    /** Calls the events of the two detected shapes. */
+    private processDetectedShapesEvents(shape1: Shape, shape2: Shape): void {
+        shape1.lastCollisionFrame = shape1.tick;
+        shape2.lastCollisionFrame = shape2.tick;
+
+        shape1.body.collisioned(shape2.body);
+        shape2.body.collisioned(shape1.body);
+    }
+
+    /** Detects collisions between two simple shapes. */
+    public detectSimple(shape1: Shape, shape2: Shape): boolean {
+        if (shape1.type === ShapeType.Circle && shape2.type === ShapeType.Circle) return this.detectCircleCircle(shape1 as Circle, shape2 as Circle);
+        if (shape1.type === ShapeType.Circle || shape2.type === ShapeType.Circle) {
+            const circle = shape1.type === ShapeType.Circle ? shape1 : shape2;
+            const notCircle = shape1.type === ShapeType.Circle ? shape2 : shape1;
+
+            if (notCircle.type === ShapeType.Line) return this.detectCircleLine(circle as Circle, notCircle as Line);
 
             return this.detectCirclePolygon(circle as Circle, notCircle);
-        };
+        }
 
         let overlap = Infinity;
         let smallestAxis!: Vector;
 
-        const vertices1 = entity1.vertices;
-        const vertices2 = entity2.vertices;
+        const vertices1 = shape1.vertices;
+        const vertices2 = shape2.vertices;
 
         const edges = vertices1.length + vertices2.length;
 
@@ -62,7 +74,7 @@ export default class CollisionResolver {
 
             /** Calculate the overlap between the projections. */
             const overlapN = Math.min(maxA, maxB) - Math.max(minA, minB);
-            
+
             if (overlapN <= 0) return false;
             /** Determine the smallest overlap. */
             if (overlapN < overlap) {
@@ -72,23 +84,16 @@ export default class CollisionResolver {
         }
 
         if (smallestAxis) {
-            this.resolve(
-                entity1.parent || entity1,
-                entity2.parent || entity2, 
-                Math.max(entity1.elasticity, entity2.elasticity),
-                overlap,
-                smallestAxis
-            );
+            this.resolve(shape1.parent || shape1, shape2.parent || shape2, Math.max(shape1.elasticity, shape2.elasticity), overlap, smallestAxis);
 
-            entity1.lastCollisionFrame = entity1.tick;
-            entity2.lastCollisionFrame = entity2.tick;
-            
+            this.processDetectedShapesEvents(shape1, shape2);
+
             return true;
         } else return false;
-    };
+    }
 
     /** Detects collisions between a circle and a polygon. */
-    private detectCirclePolygon(circle: Circle, polygon: Entity) {
+    private detectCirclePolygon(circle: Circle, polygon: Shape) {
         const vertices = polygon.vertices;
 
         let overlap = Infinity;
@@ -113,49 +118,66 @@ export default class CollisionResolver {
         }
 
         if (smallestAxis) {
-            this.resolve(
-                circle.parent || circle,
-                polygon.parent || polygon, 
-                Math.max(circle.elasticity, polygon.elasticity), 
-                overlap, 
-                smallestAxis
-            );
+            this.resolve(circle.parent || circle, polygon.parent || polygon, Math.max(circle.elasticity, polygon.elasticity), overlap, smallestAxis);
 
-            circle.lastCollisionFrame = circle.tick;
-            polygon.lastCollisionFrame = polygon.tick;
+            this.processDetectedShapesEvents(circle, polygon);
 
             return true;
         } else return false;
-    };
+    }
 
     /** Detects collisions between two circles. */
     private detectCircleCircle(circle1: Circle, circle2: Circle) {
-        const distance = circle1.position.distance(circle2.position);        
-        const overlap = (circle1.radius + circle2.radius) - distance;
+        const distance = circle1.position.distance(circle2.position);
+        const overlap = circle1.radius + circle2.radius - distance;
         const axis = circle1.position.clone.subtract(circle2.position).normalize();
 
         if (overlap <= 0) return false;
         if (axis) {
-            this.resolve(
-                circle1.parent || circle1,
-                circle2.parent || circle2,
-                Math.max(circle1.elasticity, circle2.elasticity), 
-                overlap, 
-                axis
-            );
+            this.resolve(circle1.parent || circle1, circle2.parent || circle2, Math.max(circle1.elasticity, circle2.elasticity), overlap, axis);
 
-            circle1.lastCollisionFrame = circle1.tick;
-            circle2.lastCollisionFrame = circle2.tick;
+            this.processDetectedShapesEvents(circle1, circle2);
 
             return true;
         } else return false;
-    };
+    }
+
+    /** Detects a collision between a circle and a line. */
+    private detectCircleLine(circle: Circle, line: Line) {
+        const circleToLineStart = line.start.clone.subtract(circle.position);
+        const lineEndToCircle = circle.position.clone.subtract(line.end);
+        let closestPoint: Vector;
+
+        if (line.lineDir.dot(circleToLineStart) > 0) {
+            closestPoint = line.start;
+        } else if (line.lineDir.dot(lineEndToCircle) > 0) {
+            closestPoint = line.end;
+        } else {
+            const closestDist = line.lineDir.dot(circleToLineStart);
+            const closestVector = line.lineDir.clone.scale(closestDist);
+            closestPoint = line.start.clone.add(closestVector);
+        }
+
+        const penetration = circle.position.clone.subtract(closestPoint);
+        const axis = penetration.clone.normalize();
+        const overlap = circle.radius - penetration.magnitude;
+
+        if (overlap > 0) {
+            this.resolve(circle.parent || circle, line.parent || line, Math.max(circle.elasticity, line.elasticity), overlap, axis);
+
+            this.processDetectedShapesEvents(circle, line);
+
+            return true;
+        } else {
+            return false;
+        }
+    }
 
     /** Projects the vertices onto the given axis. */
     private static project(axis: Vector, vertices: Vector[]): [number, number] {
         let min = Infinity;
         let max = -Infinity;
-        
+
         for (const vertex of vertices) {
             const projection = vertex.dot(axis);
             min = Math.min(min, projection);
@@ -163,42 +185,42 @@ export default class CollisionResolver {
         }
 
         return [min, max];
-    };
+    }
 
     /** Resolves the collision between two entities. */
-    private resolve(entity1: Entity, entity2: Entity, elasticity: number, overlap: number, axis: Vector) {
-        entity1.hooks.preResolve?.(entity2);
-        entity2.hooks.preResolve?.(entity1);
+    private resolve(shape1: Shape, shape2: Shape, elasticity: number, overlap: number, axis: Vector) {
+        shape1.hooks.preResolve?.(shape2);
+        shape2.hooks.preResolve?.(shape1);
 
-        if (entity1.position.dot(axis) < entity2.position.dot(axis)) axis.scale(-1);
-        
-        const velocity1 = entity1.velocity;
-        const velocity2 = entity2.velocity;
-        const mass1 = entity1.mass;
-        const mass2 = entity2.mass;
+        if (shape1.position.dot(axis) < shape2.position.dot(axis)) axis.scale(-1);
+
+        const velocity1 = shape1.velocity;
+        const velocity2 = shape2.velocity;
+        const mass1 = shape1.mass;
+        const mass2 = shape2.mass;
 
         const velocity = velocity1.clone.subtract(velocity2);
         const velocityProjection = velocity.dot(axis);
-        
-        const impulse = (-(1 + (elasticity)) * velocityProjection) / (1 / mass1 + 1 / mass2);
+
+        const impulse = (-(1 + elasticity) * velocityProjection) / (1 / mass1 + 1 / mass2);
         const impulseVector = axis.clone.scale(impulse);
 
         /** Change the velocity by impulse and elasticity. */
-        if (!entity1.static) entity1.velocity.add(impulseVector.clone.scale(1 / mass1));
-        if (!entity2.static) entity2.velocity.subtract(impulseVector.clone.scale(1 / mass2));
+        if (!shape1.static) shape1.velocity.add(impulseVector.clone.scale(1 / mass1));
+        if (!shape2.static) shape2.velocity.subtract(impulseVector.clone.scale(1 / mass2));
 
         /** Change the angular velocity of the entities. */
-        if (!entity1.static && !entity2.static) {
-            entity1.angularVelocity -= (1 / entity1.inertia) * entity1.position.clone.subtract(entity2.position).cross(impulseVector);
-            entity2.angularVelocity -= (1 / entity2.inertia) * entity1.position.clone.subtract(entity2.position).cross(impulseVector);
+        if (!shape1.static && !shape2.static) {
+            shape1.angularVelocity -= (1 / shape1.inertia) * shape1.position.clone.subtract(shape2.position).cross(impulseVector);
+            shape2.angularVelocity -= (1 / shape2.inertia) * shape1.position.clone.subtract(shape2.position).cross(impulseVector);
         }
-        
+
         /** Move the entities out of each other. */
         const penetration = axis.clone.scale(overlap / (1 / mass1 + 1 / mass2));
-        if (!entity1.static) entity1.updatePosition(penetration.clone.scale(1 / mass1));
-        if (!entity2.static) entity2.updatePosition(penetration.clone.scale(-1 / mass2));
+        if (!shape1.static) shape1.updatePosition(penetration.clone.scale(1 / mass1));
+        if (!shape2.static) shape2.updatePosition(penetration.clone.scale(-1 / mass2));
 
-        entity1.hooks.postResolve?.(entity2);
-        entity2.hooks.postResolve?.(entity1);
-    };
-};
+        shape1.hooks.postResolve?.(shape2);
+        shape2.hooks.postResolve?.(shape1);
+    }
+}

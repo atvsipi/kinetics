@@ -1,11 +1,11 @@
-import System from "../System";
+import {System} from '../System';
 
-import { SystemRenderingConfig } from "../typings/Config";
-import { Colors } from "../typings/Enums";
-import { ConfigurationError } from "../typings/Error";
+import {SystemRenderingConfig} from '../typings/Config';
+import {Colors} from '../typings/Enums';
+import {ConfigurationError} from '../typings/Error';
 
 /** The class which handles rendering of the system. */
-export default class Renderer {
+export class Renderer {
     /** The system the renderer is rendering. */
     public system: System;
     /** The canvas the renderer is rendering on. */
@@ -27,26 +27,25 @@ export default class Renderer {
         lastUpdate: 0,
     };
 
-    constructor(config: SystemRenderingConfig | undefined, system: System) {
+    constructor(config: SystemRenderingConfig, system: System) {
         this.system = system;
-        if (!config || !config.canvas) return;
 
         this.canvas = config.canvas;
-        
-        const ctx = this.canvas.getContext("2d");
-        if (!ctx) throw new ConfigurationError("Could not configure Renderer: Your browser does not support CanvasRenderingContext2D.");
+        const ctx = this.canvas.getContext('2d');
+
+        if (!ctx) throw new ConfigurationError('Could not configure Renderer: Your browser does not support CanvasRenderingContext2D.');
         this.context = ctx;
-        
+
         /** Ensure the canvas stays in bounds. */
-        window.addEventListener("resize", () => {
+        window.addEventListener('resize', () => {
             this.canvas.width = window.innerWidth * window.devicePixelRatio;
             this.canvas.height = window.innerHeight * window.devicePixelRatio;
         });
-        window.dispatchEvent(new Event("resize"));
+        window.dispatchEvent(new Event('resize'));
 
         this.configure(config);
         requestAnimationFrame(this.render.bind(this));
-    };
+    }
 
     /** Configures the renderer. */
     public configure(config: SystemRenderingConfig) {
@@ -58,10 +57,10 @@ export default class Renderer {
             gridColor: config.gridColor || Colors.Black,
             gridWidth: config.gridWidth || 1,
         };
-    };
+    }
 
     /** Renders the system. */
-    public render() {        
+    public render() {
         /** Update framerate information. */
         this.framerate.dt = performance.now() - this.framerate.lastUpdate;
         this.framerate.lastUpdate = performance.now();
@@ -80,45 +79,62 @@ export default class Renderer {
         this.context.fillStyle = this.rendering.background!;
         this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
+        this.rendering.hooks!.preRender?.(this.context);
+
+        this.context.scale(this.system.camera.zoom, this.system.camera.zoom);
+        this.context.translate(this.canvas.width / 2 / this.system.camera.zoom - this.system.camera.position.x, this.canvas.height / 2 / this.system.camera.zoom + this.system.camera.position.y);
+
         if (this.rendering.gridSize !== 0) {
             this.context.strokeStyle = this.rendering.gridColor!;
             this.context.lineWidth = this.rendering.gridWidth!;
 
-            for (let x = 0; x < this.canvas.width; x += this.rendering.gridSize!) {
-                this.context.beginPath();
-                this.context.moveTo(x, 0);
-                this.context.lineTo(x, this.canvas.height);
-                this.context.stroke();
-            };
+            if (!this.system.width || !this.system.height) {
+                for (let x = 0; x < this.canvas.width; x += this.rendering.gridSize!) {
+                    this.context.beginPath();
+                    this.context.moveTo(x, 0);
+                    this.context.lineTo(x, this.canvas.height);
+                    this.context.stroke();
+                }
 
-            for (let y = 0; y < this.canvas.height; y += this.rendering.gridSize!) {
-                this.context.beginPath();
-                this.context.moveTo(0, y);
-                this.context.lineTo(this.canvas.width, y);
-                this.context.stroke();
-            };
-        };
+                for (let y = 0; y < this.canvas.height; y += this.rendering.gridSize!) {
+                    this.context.beginPath();
+                    this.context.moveTo(0, y);
+                    this.context.lineTo(this.canvas.width, y);
+                    this.context.stroke();
+                }
+            } else {
+                const width = this.system.width / 2;
+                const height = this.system.height / 2;
+
+                for (let y = -height; y <= height; y += this.rendering.gridSize!) {
+                    this.context.beginPath();
+                    this.context.moveTo(-width, y);
+                    this.context.lineTo(width, y);
+                    this.context.stroke();
+                }
+                for (let x = -width; x <= width; x += this.rendering.gridSize!) {
+                    this.context.beginPath();
+                    this.context.moveTo(x, -height);
+                    this.context.lineTo(x, height);
+                    this.context.stroke();
+                }
+            }
+        }
 
         this.context.strokeStyle = this.rendering.gridColor!;
 
-        /** Render the entities. */
-        this.context.translate(this.canvas.width / 2, this.canvas.height / 2);
-        this.context.scale(this.system.camera.zoom, this.system.camera.zoom);
-
-        this.rendering.hooks!.preRender?.(this.context);
-
-        for (const entity of this.system.entities) {
-            if (!entity) continue;
+        /** Render the bodys. */
+        for (const body of this.system.bodys) {
+            if (!body) continue;
 
             this.context.save();
-            entity.rendering.hooks!.preRender?.(entity, this.context);
-            entity.render(this.context);
-            entity.rendering.hooks!.postRender?.(entity, this.context);
+            body.shape.rendering.hooks!.preRender?.(body.shape, this.context);
+            body.render(this.context);
+            body.shape.rendering.hooks!.postRender?.(body.shape, this.context);
             this.context.restore();
-        };
+        }
 
         this.context.restore();
         this.rendering.hooks!.postRender?.(this.context);
-        requestAnimationFrame(this.render.bind(this));
-    };
+    }
 }
