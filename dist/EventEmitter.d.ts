@@ -1,0 +1,8 @@
+/** Polyfill for an event emitter. */
+export declare class EventEmitter {
+    private events;
+    /** Adds a listener for an event. */
+    on(event: string, listener: Function): void;
+    /** Emits an event. */
+    emit(event: string, ...args: any[]): void;
+}

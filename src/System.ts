@@ -1,25 +1,26 @@
-import { Environment, Movement } from "./typings/Enums";
-import { SystemConfig } from "./typings/Config";
-import { ConfigurationError } from "./typings/Error";
-import { CollisionManager } from "./typings/Interfaces";
+import {Environment, Movement} from './typings/Enums';
+import {SystemConfig} from './typings/Config';
+import {ConfigurationError} from './typings/Error';
+import {CollisionManager} from './typings/Interfaces';
 
-import SpatialHashGrid from "./collision/SpatialHashGrid";
+import {SpatialHashGrid} from './collision/SpatialHashGrid';
 
-import CollisionResolver from "./collision/CollisionResolver";
-import Camera from "./utils/Camera";
-import Renderer from "./utils/Renderer";
+import {CollisionResolver} from './collision/CollisionResolver';
+import {Camera} from './utils/Camera';
+import {Renderer} from './utils/Renderer';
 
-import Entity from "./entities/Entity";
+import {Body} from './body/Body';
 
-import EventEmitter from "./EventEmitter";
-import Vector from "./utils/Vector";
+import {EventEmitter} from './EventEmitter';
+import {Vector, VectorLike} from './utils/Vector';
+import {Plugin} from './plugin/Plugin';
 
 /** The area upon which the engine is operating on. */
-export default class System extends EventEmitter {
+export class System extends EventEmitter {
     /** The camera viewing the system. */
     public camera: Camera;
     /** The renderer rendering the system. */
-    public renderer: Renderer;
+    public renderer!: Renderer;
 
     /** The width of the system. */
     public width: number | null = null;
@@ -29,15 +30,18 @@ export default class System extends EventEmitter {
     /** The friction in the system. */
     public friction = 0.1;
     /** The gravity in the system. */
-    public gravity = 0;
+    public gravity: VectorLike = new Vector(0, 0);
+
+    /** The plugins of the system. */
+    public plugins: Plugin[] = [];
 
     /** The engine which partitions the system and efficiently checks for collisions. */
     public CollisionManager: CollisionManager;
     /** The engine which detects and resolves collisions. */
     public CollisionResolver = new CollisionResolver();
 
-    /** The entities in the system. */
-    public entities: (Entity | undefined)[] = [];
+    /** The bodys in the system. */
+    public bodys: (Body | undefined)[] = [];
 
     /** The configuration of the system. */
     public config: SystemConfig;
@@ -57,16 +61,16 @@ export default class System extends EventEmitter {
         /** The time it takes for a world update. */
         worldUpdateRate: 0,
         /** The amount of memory used, in bytes. */
-        memoryUsage: 0
+        memoryUsage: 0,
     };
 
     /** Gets the momentum of the system. */
     public get momentum() {
         let momentum = 0;
-        
-        for (const entity of this.entities) {
-            if (!entity) continue;            
-            momentum += (entity.velocity.magnitude * entity.mass) + Math.abs(entity.angularVelocity * entity.inertia) * entity.mass;
+
+        for (const body of this.bodys) {
+            if (!body) continue;
+            momentum += body.velocity.magnitude * body.shape.mass + Math.abs(body.shape.angularVelocity * body.shape.inertia) * body.shape.mass;
         }
 
         return momentum;
@@ -75,9 +79,9 @@ export default class System extends EventEmitter {
     /** Gets the kinetic energy of the system. */
     public get kineticEnergy() {
         let energy = 0;
-        for (const entity of this.entities) {
-            if (!entity) continue;
-            energy += 0.5 * entity.mass * (entity.velocity.magnitude * entity.velocity.magnitude);
+        for (const body of this.bodys) {
+            if (!body) continue;
+            energy += 0.5 * body.shape.mass * (body.velocity.magnitude * body.velocity.magnitude);
         }
 
         return energy;
@@ -85,44 +89,44 @@ export default class System extends EventEmitter {
 
     /** Gets the next available ID. */
     private get nextId(): number {
-        const idx = this.entities.indexOf(undefined);
+        const idx = this.bodys.indexOf(undefined);
         if (idx !== -1) return idx;
-        return this.entities.length;
+        return this.bodys.length;
     }
 
     constructor(config: SystemConfig) {
         super();
 
-        this.environment = typeof window === "undefined" ? Environment.Node : Environment.Browser;
+        this.environment = typeof window === 'undefined' ? Environment.Node : Environment.Browser;
         this.config = config;
 
         this.width = config.dimensions?.x || null;
         this.height = config.dimensions?.y || null;
 
-        if (
-            (this.width && !this.height) ||
-            (this.height && !this.width)
-        ) throw new ConfigurationError("Both dimensions must be specified for the system.");
+        if ((this.width && !this.height) || (this.height && !this.width)) throw new ConfigurationError('Both dimensions must be specified for the system.');
 
-        this.friction = config.friction === undefined ? 0.1 : config.friction;
-        this.gravity = config.gravity === undefined ? 0 : config.gravity;
-        
+        this.friction = config.friction || 0.1;
+        this.gravity = config.gravity || new Vector(0, 0);
+        this.plugins = config.plugins || [];
+
         this.camera = new Camera(config.camera || {}, this);
-        this.renderer = new Renderer(config.render, this);
+
+        if (config.render && config.render.canvas) this.renderer = new Renderer(config.render, this);
+
         this.verbose = config.verbose || false;
 
-        if (!config.collisionInfo) throw new ConfigurationError("Collision information must be specified for the system.");
+        if (!config.collisionInfo) throw new ConfigurationError('Collision information must be specified for the system.');
 
         this.CollisionManager = new SpatialHashGrid(this, config.collisionInfo.cellSize || 12);
 
-        if (this.verbose) console.log("[PHYSICS]: Engine started.");
+        if (this.verbose) console.log('[PHYSICS]: Engine started.');
 
         /** Handle ticksystem. */
-        if (this.environment === Environment.Browser && config.useRAF !== false) {
+        if (this.environment === Environment.Browser) {
             requestAnimationFrame(this.update.bind(this));
             return;
         }
-        
+
         this.tickRate = config.tickRate || 60;
         setInterval(this.update.bind(this), 1000 / this.tickRate);
         // if (config.useRAF) requestAnimationFrame(this.update.bind(this));
@@ -130,54 +134,67 @@ export default class System extends EventEmitter {
         //     this.tickRate = config.tickRate || 60;
         //     setInterval(this.update.bind(this), 1000 / this.tickRate);
         // }
-
-    };
+    }
 
     /** Sets the collision engine. */
     public setCollisionEngine(engine: CollisionManager) {
         this.CollisionManager = engine;
-    };
+    }
 
-    private update() {        
+    public update() {
         const time = performance.now();
 
         this.CollisionManager.clear();
-        for (const entity of this.entities) {
-            if (!entity) return;
 
-            this.CollisionManager.insert(entity.bounds.min.x, entity.bounds.min.y, entity.hitbox.x, entity.hitbox.y, entity.id);
-            entity.update();
-        };
+        for (const body of this.bodys) {
+            if (!body) continue;
+
+            if (!body.live) {
+                this.bodys[body.id] = undefined;
+
+                this.emit('bodyDelete', body);
+
+                continue;
+            }
+
+            this.CollisionManager.insert(body.shape.bounds.min.x, body.shape.bounds.min.y, body.shape.hitbox.x, body.shape.hitbox.y, body.id);
+            body.update();
+        }
+
         this.CollisionManager.query();
-        
+
+        for (const plugin of this.plugins) {
+            plugin.update(this);
+        }
+
         this.tick++;
-        
+
         this.performance.worldUpdateRate = performance.now() - time;
-        this.performance.memoryUsage = this.environment === Environment.Browser ?
-            /** @ts-ignore */
-            performance.memory?.usedJSHeapSize / 1024 / 1024 :
-            process.memoryUsage().heapUsed / 1024 / 1024;
 
-        if (this.environment === Environment.Browser && this.config.useRAF !== false)
-            requestAnimationFrame(this.update.bind(this));
-    };
+        /** @ts-ignore */
+        this.performance.memoryUsage = this.environment === Environment.Browser ? performance.memory?.usedJSHeapSize / 1024 / 1024 : process.memoryUsage().heapUsed / 1024 / 1024;
 
-    /** Adds an entity to the system. */
-    public addEntity(entity: Entity) {
+        if (this.environment === Environment.Browser) requestAnimationFrame(this.update.bind(this));
+    }
+
+    /** Adds an body to the system. */
+    public addBody(body: Body) {
         const id = this.nextId;
 
-        entity.id = id;
-        this.entities[id] = entity;
-        this.emit("entityCreate", entity);
+        body.id = id;
+        body.system = this;
+        this.bodys[id] = body;
+        this.emit('bodyCreate', body);
 
-        return entity;
-    };
+        return body;
+    }
 
-    /** Removes an entity from the system. */
-    public removeEntity(entity: Entity) {
-        this.entities[entity.id] = undefined;
-        this.emit("entityDelete", entity);
+    /** Removes an body from the system. */
+    public removeBody(body: Body) {
+        // this.bodys[body.id] = undefined;
 
-        return entity;
-    };
-};
+        if (this.bodys[body.id]) body.live = false;
+
+        return body;
+    }
+}

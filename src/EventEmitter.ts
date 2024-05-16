@@ -1,6 +1,6 @@
 /** Polyfill for an event emitter. */
-export default class EventEmitter {
-    private events: { [key: string]: Function[] } = {};
+export class EventEmitter {
+    private events: {[key: string]: Function[]} = {};
 
     /** Adds a listener for an event. */
     public on(event: string, listener: Function) {
@@ -15,4 +15,4 @@ export default class EventEmitter {
             listener(...args);
         }
     }
-};
+}
