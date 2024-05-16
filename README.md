@@ -1,6 +1,6 @@
-<!-- ![image](https://github.com/atvsipi/kinetics-ts/assets/38045884/f9985f30-5d88-48bc-89ca-1b917369665f) -->
+<!-- ![image](https://github.com/atvsipi/kinetics/assets/38045884/f9985f30-5d88-48bc-89ca-1b917369665f) -->
 
-![image](https://github.com/atvsipi/kinetics-ts/blob/main/img/kinetics.jpeg?raw=true) <sub>Credits to SimplyTav for creating this logo.</sub>
+![image](https://github.com/atvsipi/kinetics/blob/main/img/kinetics.jpeg?raw=true) <sub>Credits to SimplyTav for creating this logo.</sub>
 
 # About
 
@@ -22,13 +22,13 @@ A blazingly fast, simple 2D physics engine for JavaScript and TypeScript, for bo
 To install this package on a server or a web framework, use the following command:
 
 ```bash
-npm install git+https://github.com/atvsipi/kinetics-ts.git
+npm install git+https://github.com/atvsipi/kinetics.git
 ```
 
 For a vanilla HTML/CSS/JS project, use the following script tag:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/atvsipi/kinetics-ts/build/kinetics.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/gh/atvsipi/kinetics/build/kinetics.min.js" defer></script>
 ```
 
 and all of the engine's classes will be available under the `Kinetics` namespace (`window.Kinetics.System`, `window.Kinetics.Body`, etc.).
@@ -45,6 +45,6 @@ System Specifications:
 -   16-core Neural Engine
 -   100GB/s memory bandwidth
 
-<img width="870" alt="image" src="https://github.com/atvsipi/kinetics-ts/blob/main/img/bench.png?raw=true">
+<img width="870" alt="image" src="https://github.com/atvsipi/kinetics/blob/main/img/bench.png?raw=true">
 
 The benchmarks provide evidence of the engine's exceptional speed and performance in comparison to other alternatives.
