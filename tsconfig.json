@@ -13,5 +13,6 @@
         "noEmit": false,
         "esModuleInterop": true
     },
-    "include": ["src"]
+    "include": ["src"],
+    "exclude": ["example"]
 }

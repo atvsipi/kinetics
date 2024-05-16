@@ -2,7 +2,8 @@
     "name": "kinetics.ts",
     "version": "2.0.0",
     "author": "Altanis",
-    "main": "dist/Index.js",
+    "main": "build/kinetics.min.js",
+    "types": "dist/Index.d.ts",
     "devDependencies": {
         "@types/node": "^20.12.11",
         "html-webpack-plugin": "^5.6.0",
