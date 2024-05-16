@@ -30,6 +30,9 @@
         "dev": "webpack serve --mode=development",
         "debug": "nodemon --exec \"npx webpack\" --watch src --ext ts"
     },
+    "publishConfig": {
+        "registry": "https://npm.pkg.github.com"
+    },
     "dependencies": {
         "terser-webpack-plugin": "^5.3.10"
     }
